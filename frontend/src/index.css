@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark theme overrides */
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-gray-950 text-gray-200;
+  font-family: 'Inter', 'Fira Code', monospace;
+}
+
+/* Custom scrollbar (dark) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-gray-900;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-700 rounded;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-600;
+}
+
+/* Monaco editor already has its own theme; but we can make the outer container blend */
+.editor-container {
+  @apply border border-gray-800 rounded overflow-hidden;
+}
+
+/* Remove extra spacing from headings, forms, etc. */
+h1, h2, h3, h4 {
+  @apply font-semibold tracking-tight;
+}
+
+button:focus, input:focus, textarea:focus, select:focus {
+  @apply outline-none ring-2 ring-blue-600;
+}
