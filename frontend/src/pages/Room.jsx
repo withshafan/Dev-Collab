@@ -65,7 +65,6 @@ const Room = () => {
   const [loadingReview, setLoadingReview] = useState(false);
   const [selectedSnippet, setSelectedSnippet] = useState(null);
   
-  // Room edit states
   const [isEditingRoom, setIsEditingRoom] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -74,7 +73,6 @@ const Room = () => {
   const snippetsRef = useRef(snippets);
   useEffect(() => { snippetsRef.current = snippets; }, [snippets]);
 
-  // Auto‑detect language when code changes (only for new snippets, not editing)
   useEffect(() => {
     if (code && !editingId) {
       const detected = detectLanguage(code);
@@ -91,9 +89,12 @@ const Room = () => {
       setSnippets(prev => [newSnippet, ...prev]);
     });
     
+    // FIXED: Use string comparison to replace updated snippet (no duplication)
     const unsubscribeUpdate = onSnippetUpdated((updatedSnippet) => {
       if (updatedSnippet.authorId?._id === user.id) return;
-      setSnippets(prev => prev.map(s => s._id === updatedSnippet._id ? updatedSnippet : s));
+      setSnippets(prev =>
+        prev.map(s => (String(s._id) === String(updatedSnippet._id) ? updatedSnippet : s))
+      );
     });
     
     const unsubscribeDelete = onSnippetDeleted((deletedSnippetId) => {
@@ -146,15 +147,13 @@ const Room = () => {
     setLanguage(snippet.language);
   };
 
+  // FIXED: Use string comparison when updating local state
   const updateSnippet = async (e) => {
     e.preventDefault();
-    
-    // Guard: make sure we have a snippet ID to update
     if (!editingId) {
       alert('No snippet selected for editing. Please try again.');
       return;
     }
-    
     try {
       const response = await API.put(`/rooms/snippets/${editingId}`, {
         title,
@@ -162,13 +161,10 @@ const Room = () => {
         language
       });
       const updatedSnippet = response.data;
-      // Update local state
       setSnippets(prev =>
-        prev.map(s => (s._id === updatedSnippet._id ? updatedSnippet : s))
+        prev.map(s => (String(s._id) === String(updatedSnippet._id) ? updatedSnippet : s))
       );
-      // Emit socket event for real‑time update to other users
       emitUpdateSnippet(editingId, title, code, language);
-      // Clear edit form
       setEditingId(null);
       setTitle('');
       setCode('');
@@ -195,7 +191,6 @@ const Room = () => {
     }
   };
 
-  // Improved AI review with timeout and detailed error
   const getAIReview = async (snippet) => {
     setSelectedSnippet(snippet);
     setLoadingReview(true);
@@ -214,13 +209,23 @@ const Room = () => {
       }
     } catch (err) {
       console.error('AI review error:', err);
-      let errorMsg = err.message;
+      let errorMsg = 'Unknown error';
+      
+      // Check if the error response contains a review (backend sent mock review)
+      if (err.response?.data?.review) {
+        setAiReview(err.response.data.review);
+        setLoadingReview(false);
+        return;
+      }
+      
       if (err.code === 'ECONNABORTED') {
         errorMsg = 'Request timed out. The AI service is slow, please try again.';
       } else if (err.response?.data?.error) {
         errorMsg = err.response.data.error;
       } else if (err.response?.data?.message) {
         errorMsg = err.response.data.message;
+      } else if (err.message) {
+        errorMsg = err.message;
       }
       setAiReview(`⚠️ AI review failed: ${errorMsg}`);
     } finally {
@@ -456,7 +461,7 @@ const Room = () => {
         </div>
       </div>
 
-      {/* AI Review Modal (dark) */}
+      {/* AI Review Modal */}
       {selectedSnippet && (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-900 rounded-xl p-6 max-w-3xl w-full max-h-[85vh] overflow-auto border border-gray-700">
