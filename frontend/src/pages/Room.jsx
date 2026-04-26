@@ -10,7 +10,6 @@ const detectLanguage = (code) => {
   if (!code || code.trim() === '') return 'javascript';
   
   const patterns = {
-    // General-purpose
     python: /^\s*(import |from |def |class )|:\s*$/m,
     javascript: /^\s*(const |let |var |function |=>)|console\./m,
     typescript: /^\s*(interface |type |: string|: number|: boolean|: any)/m,
@@ -20,20 +19,15 @@ const detectLanguage = (code) => {
     csharp: /^\s*(using System|namespace|class Program|static void Main)/m,
     go: /^package main|func main\(\)|import \(/m,
     rust: /^\s*(fn main|let mut|println!|impl )/m,
-    // Web / scripting
     php: /<\?php|echo |\$[a-zA-Z_]/m,
     ruby: /^def |end\s*$|gem /m,
     dart: /void main\(\)|import 'dart:/m,
-    // Mobile / platform-specific
     kotlin: /^\s*(fun main|val |var |class )/m,
     swift: /^\s*(import Swift|func |var |let )/m,
-    // Data / scientific
     r: /^\s*(library\(|data\.frame|ggplot|function\()/m,
     matlab: /^\s*%|function|end\s*$/m,
-    // Systems / low-level / niche
     assembly: /^\s*(mov |push |pop |eax|ebx)/mi,
     zig: /const std = @import\("std"\);/m,
-    // Also keep html/css/sql
     html: /<\s*!DOCTYPE\s+html|\<\s*html|\<\s*body|\<\s*head/mi,
     css: /^\s*[\w\-\.\#]+ *\{.*\}/m,
     sql: /\b(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE)\b/i,
@@ -93,13 +87,11 @@ const Room = () => {
     joinRoom(id);
     
     const unsubscribeNew = onNewSnippet((newSnippet) => {
-      // If the snippet was created by me, ignore (already added from API response)
       if (newSnippet.authorId?._id === user.id) return;
       setSnippets(prev => [newSnippet, ...prev]);
     });
     
     const unsubscribeUpdate = onSnippetUpdated((updatedSnippet) => {
-      // Only update if I'm not the one who made the edit
       if (updatedSnippet.authorId?._id === user.id) return;
       setSnippets(prev => prev.map(s => s._id === updatedSnippet._id ? updatedSnippet : s));
     });
@@ -156,6 +148,13 @@ const Room = () => {
 
   const updateSnippet = async (e) => {
     e.preventDefault();
+    
+    // Guard: make sure we have a snippet ID to update
+    if (!editingId) {
+      alert('No snippet selected for editing. Please try again.');
+      return;
+    }
+    
     try {
       const response = await API.put(`/rooms/snippets/${editingId}`, {
         title,
@@ -163,16 +162,21 @@ const Room = () => {
         language
       });
       const updatedSnippet = response.data;
+      // Update local state
       setSnippets(prev =>
         prev.map(s => (s._id === updatedSnippet._id ? updatedSnippet : s))
       );
+      // Emit socket event for real‑time update to other users
       emitUpdateSnippet(editingId, title, code, language);
+      // Clear edit form
       setEditingId(null);
       setTitle('');
       setCode('');
       setLanguage('javascript');
     } catch (err) {
-      alert('Failed to update snippet: ' + (err.response?.data?.message || err.message));
+      console.error('Update error:', err);
+      const errorMsg = err.response?.data?.message || err.message;
+      alert(`Failed to update snippet: ${errorMsg}`);
     }
   };
 
@@ -328,7 +332,6 @@ const Room = () => {
                 <span key={u.id} className="ml-2 text-green-400">● {u.userId === user.id ? 'You' : u.userId}</span>
               ))}
             </div>
-            {/* Replaced static member count with real‑time online count */}
             <div className="bg-gray-900 px-3 py-2 rounded-lg border border-gray-800 text-sm">
               <span className="font-semibold text-gray-300">Online Now:</span> {onlineUsers.length}
             </div>

@@ -1,7 +1,7 @@
 const Room = require('../models/Room');
 const Snippet = require('../models/Snippet');
 
-// Create room (owner can optionally set an access code)
+// Create room
 const createRoom = async (req, res) => {
   try {
     const { title, description, accessCode } = req.body;
@@ -22,12 +22,11 @@ const createRoom = async (req, res) => {
   }
 };
 
-// Get only rooms where user is a member (including owned)
+// Get all rooms where user is a member
 const getRooms = async (req, res) => {
   try {
     const rooms = await Room.find({ members: req.userId })
-      .populate('ownerId', 'name email');  // important: fetch owner name
-    // Convert to plain objects and remove accessCode
+      .populate('ownerId', 'name email');
     const publicRooms = rooms.map(room => {
       const obj = room.toObject();
       delete obj.accessCode;
@@ -39,7 +38,7 @@ const getRooms = async (req, res) => {
   }
 };
 
-// Get single room with its snippets (includes hasAccessCode flag for non‑owners)
+// Get single room with snippets
 const getRoomById = async (req, res) => {
   try {
     const room = await Room.findById(req.params.id)
@@ -62,7 +61,6 @@ const getRoomById = async (req, res) => {
 };
 
 // Add snippet
-// Add snippet (with populated author)
 const addSnippet = async (req, res) => {
   try {
     const { title, code, language } = req.body;
@@ -81,20 +79,23 @@ const addSnippet = async (req, res) => {
   }
 };
 
-// Update snippet (with populated author)
+// Update snippet
 const updateSnippet = async (req, res) => {
   try {
     const { title, code, language } = req.body;
-    const snippet = await Snippet.findById(req.params.snippetId);
+    const snippetId = req.params.snippetId;
+    const snippet = await Snippet.findById(snippetId);
     if (!snippet) return res.status(404).json({ message: 'Snippet not found' });
-    if (snippet.authorId.toString() !== req.userId) return res.status(403).json({ message: 'Not authorized' });
+    if (snippet.authorId.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
     snippet.title = title || snippet.title;
     snippet.code = code || snippet.code;
     snippet.language = language || snippet.language;
     snippet.updatedAt = Date.now();
     await snippet.save();
     const populated = await Snippet.findById(snippetId).populate('authorId', 'name email');
-socket.broadcast.to(roomId).emit('snippet-updated', populated); // sends to *others* only
+    res.json(populated);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -113,7 +114,7 @@ const deleteSnippet = async (req, res) => {
   }
 };
 
-// Update room (owner only) – can also change accessCode
+// Update room
 const updateRoom = async (req, res) => {
   try {
     const { title, description, accessCode } = req.body;
@@ -132,7 +133,7 @@ const updateRoom = async (req, res) => {
   }
 };
 
-// Delete room (owner only)
+// Delete room
 const deleteRoom = async (req, res) => {
   try {
     const room = await Room.findById(req.params.id);
@@ -148,13 +149,12 @@ const deleteRoom = async (req, res) => {
   }
 };
 
-// Verify access code before joining (public endpoint, no auth required)
+// Verify access code (public)
 const verifyAccessCode = async (req, res) => {
   try {
     const { roomId, code } = req.body;
     const room = await Room.findById(roomId);
     if (!room) return res.status(404).json({ message: 'Room not found' });
-    // If room has no access code (empty string), always allow
     if (!room.accessCode) return res.json({ valid: true });
     if (room.accessCode === code) return res.json({ valid: true });
     res.json({ valid: false });
@@ -163,7 +163,6 @@ const verifyAccessCode = async (req, res) => {
   }
 };
 
-// EXPORT ALL functions
 module.exports = {
   createRoom,
   getRooms,

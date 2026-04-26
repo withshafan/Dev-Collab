@@ -3,7 +3,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const roomController = require('../controllers/roomController');
 
-// Public route (no auth) – verify access code
+// Public route (no authentication)
 router.post('/verify-access', roomController.verifyAccessCode);
 
 // All routes below require authentication
